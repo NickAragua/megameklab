@@ -33,20 +33,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
-import megamek.common.CriticalSlot;
-import megamek.common.Engine;
-import megamek.common.Entity;
-import megamek.common.EquipmentType;
-import megamek.common.ITechManager;
-import megamek.common.LandAirMech;
-import megamek.common.LocationFullException;
-import megamek.common.Mech;
-import megamek.common.MechFileParser;
-import megamek.common.MiscType;
-import megamek.common.Mounted;
-import megamek.common.QuadVee;
-import megamek.common.SimpleTechLevel;
-import megamek.common.TechConstants;
+import megamek.common.*;
 import megamek.common.loaders.EntityLoadingException;
 import megamek.common.verifier.TestEntity;
 import megameklab.com.ui.EntitySource;
@@ -58,12 +45,13 @@ import megameklab.com.ui.view.MVFArmorView;
 import megameklab.com.ui.view.MekChassisView;
 import megameklab.com.ui.view.MovementView;
 import megameklab.com.ui.view.PatchworkArmorView;
+import megameklab.com.ui.view.listeners.ArmorAllocationListener;
 import megameklab.com.ui.view.listeners.MekBuildListener;
 import megameklab.com.util.ITab;
 import megameklab.com.util.RefreshListener;
 import megameklab.com.util.UnitUtil;
 
-public class StructureTab extends ITab implements MekBuildListener {
+public class StructureTab extends ITab implements MekBuildListener, ArmorAllocationListener {
     /**
      *
      */
@@ -234,6 +222,10 @@ public class StructureTab extends ITab implements MekBuildListener {
             case Mech.GYRO_NONE:
                 UnitUtil.compactCriticals(getMech(), Mech.LOC_CT);
                 break;
+            case Mech.GYRO_SUPERHEAVY:
+                clearCritsForGyro(2);
+                getMech().addGyro();
+                break;
             default:
                 clearCritsForGyro(4);
                 getMech().addGyro();
@@ -305,6 +297,20 @@ public class StructureTab extends ITab implements MekBuildListener {
             case Mech.COCKPIT_QUADVEE:
                 clearCritsForCockpit(false, true);
                 getMech().addQuadVeeCockpit();
+                break;
+            case Mech.COCKPIT_SUPERHEAVY_INDUSTRIAL:
+                clearCritsForCockpit(false, false);
+                getMech().addSuperheavyIndustrialCockpit();
+                getMech().setArmorType(
+                        EquipmentType.T_ARMOR_INDUSTRIAL);
+                break;
+            case Mech.COCKPIT_SUPERHEAVY_COMMAND_CONSOLE:
+                clearCritsForCockpit(false, true);
+                getMech().addSuperheavyCommandConsole();
+                break;
+            case Mech.COCKPIT_SMALL_COMMAND_CONSOLE:
+                clearCritsForCockpit(true, true);
+                getMech().addSmallCommandConsole();
                 break;
             default:
                 clearCritsForCockpit(false, false);
@@ -497,6 +503,7 @@ public class StructureTab extends ITab implements MekBuildListener {
                         .getBaseChassisHeatSinks(getMech().hasCompactHeatSinks()));
                 getMech().setEngine(engine);
                 UnitUtil.updateAutoSinks(getMech(), getMech().hasCompactHeatSinks());
+                resetSystemCrits();
             }
         }
         return true;
@@ -683,7 +690,10 @@ public class StructureTab extends ITab implements MekBuildListener {
         }
         getMech().setWeight(tonnage);
         // Force recalculation of walk MP. Set from chassis panel in case superheavy flag changed
-        getMech().setEngine(panChassis.getEngine());
+        final Engine engine = panChassis.getEngine();
+        engine.setBaseChassisHeatSinks(getMech().getEngine()
+                .getBaseChassisHeatSinks(getMech().hasCompactHeatSinks()));
+        getMech().setEngine(engine);
         getMech().autoSetInternal();
         if (getMech().isSuperHeavy()) {
             getMech().setOriginalJumpMP(0);
@@ -753,10 +763,12 @@ public class StructureTab extends ITab implements MekBuildListener {
 
                         if (motiveType == QuadVee.MOTIVE_WHEEL) {
                             ((QuadVee)getMech()).setMotiveType(QuadVee.MOTIVE_WHEEL);
-                            UnitUtil.createSpreadMounts(getMech(), EquipmentType.get("Wheels"));
+                            UnitUtil.createSpreadMounts(getMech(),
+                                    EquipmentType.get(EquipmentTypeLookup.QUADVEE_WHEELS));
                         } else {
                             ((QuadVee)getMech()).setMotiveType(QuadVee.MOTIVE_TRACK);
-                            UnitUtil.createSpreadMounts(getMech(), EquipmentType.get("Tracks"));
+                            UnitUtil.createSpreadMounts(getMech(),
+                                    EquipmentType.get(EquipmentTypeLookup.MECH_TRACKS));
                         }
                     }
                 } else {
